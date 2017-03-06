@@ -3,7 +3,7 @@ c    TEST FOR DIFFERENCE IN NESTED EMPIRICAL AUCs
       program dauc
       
       INTEGER  px,pz,lda,np,n0,n1,p,id(20)
-      real norrv,runif,f(20),fsm(20),frsm(20),frmrcsm(20),
+      double precision norrv,runif,f(20),fsm(20),frsm(20),frmrcsm(20),
      1 xx(1000,1000),step(20),stepsm(20),v(20,20),steprsm(20),
      2 phi(1000,1000),norcdf,info(20,20),xpi(1000),d1(20),dd1(20,20),
      3 dd(20,20),wr(20),wi(20),tempa(20,20),fr(20),lccsq,
@@ -14,6 +14,9 @@ c    TEST FOR DIFFERENCE IN NESTED EMPIRICAL AUCs
      8 wt(1000),wwt(1000,1000),ww(1000,1000,20),sig1(20,20),
      9 ddgb(20,20),ddgg(20,20),tempb(20,20),tempc(20,20),dinv(20,20),
      1 vv(20,20),wmat(1000,20),eu(1000,1000),xlcf(1000),xlcr(1000)
+      double precision uidotk(1000), udotjk(1000), uidotl(1000), 
+     1 uijsq, euidot(1000),eudotj(1000),euijsq,udotjl(1000),
+     2 func,funcr,funcsm,funcrsm,ymin,stopcr,simp
       character*30 infile
       external FUNCTN,FUNCTNR,FUNCTNSM,FUNCTNRSM
       COMMON  jn,ip,ipx,y(1000),w(1000,20),hndf
@@ -349,18 +352,44 @@ c#######################################################################
       do 82 l=1,p-1
       sig1(k,l)=0.0
       sig2(k,l)=0.0
-      do 83 i=1,jn
-      do 84 j=1,jn
-      do 85 ij=1,jn
-      if((y(i).eq.1).and.(y(j).eq.0).and.(y(ij).eq.0).and.(ij.ne.j))then
-      sig1(k,l)=sig1(k,l)+(s(i,j,k+1)*s(i,ij,l+1))
-      endif
-      if((y(i).eq.1).and.(y(j).eq.0).and.(y(ij).eq.1).and.(ij.ne.i))then
-      sig2(k,l)=sig2(k,l)+(s(i,j,k+1)*s(ij,j,l+1))
-      endif      
+c      do 83 i=1,jn
+c      do 84 j=1,jn
+c      do 85 ij=1,jn
+c      if((y(i).eq.1).and.(y(j).eq.0).and.(y(ij).eq.0).and.(ij.ne.j))then
+c      sig1(k,l)=sig1(k,l)+(s(i,j,k+1)*s(i,ij,l+1))
+c      endif
+c      if((y(i).eq.1).and.(y(j).eq.0).and.(y(ij).eq.1).and.(ij.ne.i))then
+c      sig2(k,l)=sig2(k,l)+(s(i,j,k+1)*s(ij,j,l+1))
+c      endif      
+c 85   continue
+c 84   continue
+c 83   continue 
+c********* replacing the above using a double loop ********************
+c     initialize uidot, udotj and uijsq
+      do 85 i=1,jn
+         uidotk(i) = 0.0
+         udotjk(i) = 0.0
+         uidotl(i) = 0.0
+         udotjl(i) = 0.0
  85   continue
- 84   continue
- 83   continue 
+      uijsq=0.0
+      do 83 i=1,jn
+         do 84 j=1,jn
+            if((y(i).eq.1).and.(y(j).eq.0)) then
+               uidotk(i) = uidotk(i) + s(i,j,k+1)
+               udotjk(j) = udotjk(j) + s(i,j,k+1)
+               uidotl(i) = uidotl(i) + s(i,j,l+1)
+               udotjl(j) = udotjl(j) + s(i,j,l+1)
+               uijsq = uijsq - s(i,j,k+1)*s(i,j,l+1)
+            endif
+ 84      continue
+ 83   continue
+      sig1(k,l)=uijsq
+      sig2(k,l)=uijsq
+      do 86 i=1,jn
+         sig1(k,l)=sig1(k,l) + uidotk(i)*uidotl(i)
+         sig2(k,l)=sig2(k,l) + udotjk(i)*udotjl(i)
+ 86   continue
       sig1(k,l)=sig1(k,l)/(xn1*xn0*(xn0-1))
       sig2(k,l)=sig2(k,l)/(xn1*xn0*(xn1-1))
       sig(k,l)=((xn/xn1)*sig1(k,l))+((xn/xn0)*sig2(k,l)) 
@@ -435,18 +464,39 @@ c  COMPUTE A CONFIDENCE INTERVAL WHEN DELTA > 0
       
       sigci1=0.0
       sigci2=0.0
-      do 141 i=1,jn
-      do 142 j=1,jn
+c      do 141 i=1,jn
+c      do 142 j=1,jn
+c      do 143 k=1,jn
+c      if((y(i).eq.1).and.(y(j).eq.0).and.(y(k).eq.0).and.(k.ne.j)) then
+c      sigci1=sigci1+((eu(i,j)-eubar)*(eu(i,k)-eubar))
+c      endif
+c      if((y(i).eq.1).and.(y(j).eq.0).and.(y(k).eq.1).and.(k.ne.i)) then
+c      sigci2=sigci2+((eu(i,j)-eubar)*(eu(k,j)-eubar))
+c      endif      
+c 143   continue  
+c 142   continue
+c 141   continue 
+c********** replacing above with double loop *******************
       do 143 k=1,jn
-      if((y(i).eq.1).and.(y(j).eq.0).and.(y(k).eq.0).and.(k.ne.j)) then
-      sigci1=sigci1+((eu(i,j)-eubar)*(eu(i,k)-eubar))
-      endif
-      if((y(i).eq.1).and.(y(j).eq.0).and.(y(k).eq.1).and.(k.ne.i)) then
-      sigci2=sigci2+((eu(i,j)-eubar)*(eu(k,j)-eubar))
-      endif      
- 143   continue  
- 142   continue
- 141   continue 
+         euidot(i) = 0.0
+         eudotj(i) = 0.0
+ 143  continue
+      euijsq = 0.0
+      do 141 i=1,jn
+         do 142 j=1,jn
+            if((y(i).eq.1).and.(y(j).eq.0)) then
+               euidot(i) = euidot(i) + (eu(i,j)-eubar)
+               eudotj(j) = eudotj(j) + (eu(i,j)-eubar)
+               euijsq =  euijsq - (eu(i,j)-eubar)**2
+            endif
+ 142     continue
+ 141  continue
+      sigci1=euijsq
+      sigci2=euijsq
+      do 144 i=1,jn
+         sigci1 = sigci1 + euidot(i)**2
+         sigci2 = sigci2 + eudotj(i)**2
+ 144  continue
       sigci1=sigci1/(xn1*xn0*(xn0-1))
       sigci2=sigci2/(xn1*xn0*(xn1-1))
       vstat=(((xn/xn1)*sigci1)+((xn/xn0)*sigci2))/xn  
@@ -478,9 +528,9 @@ c#######################################################################
 c#######################################################################     
       SUBROUTINE hpsort(n,ra,ind) 
       INTEGER n,ind(n) 
-      real ra(n) 
+      double precision ra(n) 
       INTEGER i,ir,j,l,ira 
-      real rra 
+      double precision rra 
       if (n.lt.2) return 
       l=n/2+1 
       ir=n 
@@ -524,9 +574,9 @@ c#######################################################################
 
 
 
-      real FUNCTION norcdf(x) 
-      real x 
-      real dx,t,P,B1,B2,B3,B4,B5,PI 
+      double precision FUNCTION norcdf(x) 
+      double precision x 
+      double precision dx,t,P,B1,B2,B3,B4,B5,PI 
       PARAMETER (P=0.2316419,B1=0.31938153,B2=-0.356563782, 
      1 B3=1.781477937,B4=-1.821255978,B5=1.330274429,PI=3.14159265359) 
       t = 1/(1+(P*abs(x))) 
@@ -542,7 +592,7 @@ c#######################################################################
  
       FUNCTION runif(idum)
       INTEGER idum,IM1,IM2,IMM1,IA1,IA2,IQ1,IQ2,IR1,IR2,NTAB,NDIV
-      real runif,AM,EPS,RNMX
+      double precision runif,AM,EPS,RNMX
       PARAMETER (IM1=2147483563,IM2=2147483399,AM=1./IM1,IMM1=IM1-1,
      *IA1=40014,IA2=40692,IQ1=53668,IQ2=52774,IR1=12211,IR2=3791,
      *NTAB=32,NDIV=1+IMM1/NTAB,EPS=1.2e-7,RNMX=1.-EPS)
@@ -574,17 +624,17 @@ c#######################################################################
       return
       END
 
-      real FUNCTION norrv(idum)
+      double precision FUNCTION norrv(idum)
       INTEGER idum
-c      real norrv
+c      double precision norrv
 CU    USES runif
       INTEGER iset
-      real gset,v1,v2,runif
+      double precision gset,v1,v2,runif
       SAVE iset,gset
       DATA iset/0/
       if (iset.eq.0) then
  1    v1=6.28318530718*runif(idum)
-      v2=sqrt(-2.0*alog(runif(idum)))
+      v2=sqrt(-2.0*dlog(runif(idum)))
       gset=v2*sin(v1)
       norrv=v2*cos(v1)
       iset=1
@@ -598,10 +648,10 @@ CU    USES runif
 
        SUBROUTINE FUNCTN(f,func) 
  
-       real f(20),func 
+       double precision f(20),func 
        COMMON  jn,ip,ipx,y(1000),w(1000,20),hn
        
-       real  wt(1000),wwt(1000,1000),norcdf
+       double precision  wt(1000),wwt(1000,1000),norcdf
  
       func=0.0
       xind=0.0
@@ -634,10 +684,10 @@ CU    USES runif
 
        SUBROUTINE FUNCTNSM(fsm,funcsm) 
  
-       real fsm(20),funcsm 
+       double precision fsm(20),funcsm 
        COMMON  jn,ip,ipx,y(1000),w(1000,20),hndf
        
-       real  wt(1000),wwt(1000,1000),norcdf
+       double precision  wt(1000),wwt(1000,1000),norcdf
  
       funcsm=0.0
       xind=0.0
@@ -667,10 +717,10 @@ CU    USES runif
 
        SUBROUTINE FUNCTNR(fr,funcr) 
  
-       real fr(20),funcr 
+       double precision fr(20),funcr 
        COMMON  jn,ip,ipx,y(1000),w(1000,20),hndf
        
-       real  xbr(1000),xxbr(1000,1000),norcdf
+       double precision  xbr(1000),xxbr(1000,1000),norcdf
  
       funcr=0.0
       xind=0.0
@@ -701,10 +751,10 @@ CU    USES runif
 
        SUBROUTINE FUNCTNRSM(frsm,funcrsm) 
  
-       real frsm(20),funcrsm 
+       double precision frsm(20),funcrsm 
        COMMON  jn,ip,ipx,y(1000),w(1000,20),hndf
        
-       real  xbr(1000),xxbr(1000,1000),norcdf
+       double precision  xbr(1000),xxbr(1000,1000),norcdf
  
       funcrsm=0.0
       xind=0.0
@@ -788,7 +838,7 @@ c
 c   as the program is currently set up, it will deal with up to 20 
 c   parameters 
 c 
-      implicit real (a-h,o-z) 
+      implicit double precision (a-h,o-z) 
       dimension f(20),step(20) 
       dimension g(21,20),h(21),pbar(20),pstar(20),pstst(20) 
       dimension aval(20),bmat(210),pmin(20),vc(210),var(210),temp(20) 
@@ -1106,7 +1156,7 @@ C              ACADEMIC PRESS, INC., 1973
 C-----------------------------------------------------------------------
 C   DEFINITION OF PASSED PARAMETERS
 C
-C     * A = MATRIX (SIZE NXN) TO BE INVERTED (REAL)
+C     * A = MATRIX (SIZE NXN) TO BE INVERTED (double precision)
 C
 C   * LDA = LEADING DIMENSION OF MATRIX A [LDA>=N] (INTEGER)
 C
@@ -1122,7 +1172,7 @@ C
 C   * INDICATES PARAMETERS REQUIRING INPUT VALUES 
 C-----------------------------------------------------------------------
 C
-      implicit real (a-h,o-z)    
+      implicit double precision (a-h,o-z)    
       PARAMETER (MX=100)
       DIMENSION A(LDA,*),IEX(MX,2)
       IFLAG = 0
@@ -1254,14 +1304,14 @@ C
 
        	SUBROUTINE elmhes(a,n,np) 
       	INTEGER n,np
-      	real a(np,np)
-c  Reduction to Hessenberg form  by  the elimination method.  The  real,  nonsymmetric, n by
+      	double precision a(np,np)
+c  Reduction to Hessenberg form  by  the elimination method.  The  double precision,  nonsymmetric, n by
 c  n  matrix a, stored in  an  array of  physical dimensions np  by  np, is replaced by  an  upper
 c  Hessenberg matrix with  identical eigenvalues. Recommended, but  not required, is that this routine be preceded  
 c  balanc. On  output, the  Hessenberg matrix is in elements a(i,j) with  i < j+1.  Elements with  i > j+1 are  to   
 c  be thought of as  zero,  but are  returned with random  values.
       	INTEGER i,j,m
-      	real x,y
+      	double precision x,y
       	do 17 m=2,n-1	
       	x=0. 
       	i=m
@@ -1307,12 +1357,12 @@ c  be thought of as  zero,  but are  returned with random  values.
 
 	     SUBROUTINE hqr(a,n,np,wr,wi) 
 	     INTEGER n,np
-	     real a(np,np),wi(np),wr(np)
+	     double precision a(np,np),wi(np),wr(np)
 c  Finds all eigenvalues  of an n by n upper  Hessenberg matrix  a that is stored  in an np by np
-c  array.  On input  a can  be exactly  as output from elmhes x11.5;  on output it  is destroyed. The  real and     
+c  array.  On input  a can  be exactly  as output from elmhes x11.5;  on output it  is destroyed. The  double precision and     
 c  imaginary  parts  of the  eigenvalues  are returned in wr  and  wi, respectively.
 	      INTEGER i,its,j,k,l,m,nn
-	      real anorm,p,q,r,s,t,u,v,w,x,y,z
+	      double precision anorm,p,q,r,s,t,u,v,w,x,y,z
 	      anorm=0.                                                                             
 	      do 12   i=1,n
 	      do 11   j=max(i-1,1),n 
