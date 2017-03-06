@@ -1,4 +1,4 @@
-This directory contains the fortran source code (dauc.f) for conducting inference on the difference in AUCs from nested binary regression models. A simulated data example is provided (sim_ipmn.dat) along with the results obtained from the analysis (sim_ipmn.res).
+This directory contains the fortran source code (dauc.f) for conducting inference on the difference in AUCs from nested binary regression models. It can handle a maximum of 1000 observations and 20 variables. A simulated data example is provided (sim_ipmn.dat) along with the results obtained from the analysis (sim_ipmn.res).
 
 Compile the fortran code to obtain the executable. For example "gfortran -o dauc dauc.f" will generate the executable named dauc
 
